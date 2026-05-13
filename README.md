@@ -114,51 +114,66 @@ Deepgram Voice Agent API
                     │
                     ▼
 AI response streamed back to caller
+```
 
-The repository contains the Python WebSocket backend and voice-agent logic.
+The repository contains the Python WebSocket backend and voice-agent logic.  
 Twilio phone routing and Nginx reverse-proxy configuration were used in the deployment/testing setup but are not currently included as configuration files in this repository.
 
-🔄 How It Works
-A customer calls a configured Twilio phone number.
-Twilio opens a live Media Stream WebSocket connection.
-Nginx exposes and forwards the external WebSocket connection to the local Python server.
-The Python application receives Twilio audio events.
-Caller audio is decoded from Base64 and buffered.
-Audio chunks are forwarded to the Deepgram Voice Agent API.
-Deepgram processes the speech and generates:
-spoken audio responses;
-control events;
-function call requests when backend information is needed.
-When a function call is requested, Python executes the matching backend tool:
-medication lookup;
-order placement;
-order lookup.
-The tool result is returned to Deepgram.
-Deepgram synthesizes the final spoken answer.
-The Python backend streams the audio back to Twilio so the caller hears the response live.
-💊 Pharmacy Assistant Capabilities
+---
+
+## 🔄 How It Works
+
+1. A customer calls a configured **Twilio phone number**.
+2. Twilio opens a live **Media Stream WebSocket** connection.
+3. **Nginx** exposes and forwards the external WebSocket connection to the local Python server.
+4. The Python application receives Twilio audio events.
+5. Caller audio is decoded from Base64 and buffered.
+6. Audio chunks are forwarded to the **Deepgram Voice Agent API**.
+7. Deepgram processes the speech and generates:
+   - spoken audio responses;
+   - control events;
+   - function call requests when backend information is needed.
+8. When a function call is requested, Python executes the matching backend tool:
+   - medication lookup;
+   - order placement;
+   - order lookup.
+9. The tool result is returned to Deepgram.
+10. Deepgram synthesizes the final spoken answer.
+11. The Python backend streams the audio back to Twilio so the caller hears the response live.
+
+---
+
+## 💊 Pharmacy Assistant Capabilities
 
 The agent is configured to behave as a professional pharmacy assistant. It can:
 
-1. Provide Drug Information
+### 1. Provide Drug Information
 
 Example:
 
+```text
 User: What is ibuprofen?
 Agent: Ibuprofen is an anti-inflammatory medication for pain and inflammation management.
-2. Place Orders
+```
+
+### 2. Place Orders
 
 Before placing an order, the agent is instructed to:
 
-verify that the medication exists;
-ask for the customer's full name;
-request clear spelling if the name is unclear;
-confirm customer name, drug name, and order details before finalizing.
-3. Look Up Existing Orders
+- verify that the medication exists;
+- ask for the customer's full name;
+- request clear spelling if the name is unclear;
+- confirm customer name, drug name, and order details before finalizing.
+
+### 3. Look Up Existing Orders
 
 The customer can ask for an order status by providing the order ID, and the system retrieves the stored order information from the in-memory orders database.
 
-🧪 Example Conversation
+---
+
+## 🧪 Example Conversation
+
+```text
 Agent:
 Hello! I'm your pharmacy assistant. I can help you with drug information,
 placing orders, and checking order status. When placing orders, I'll need
@@ -190,10 +205,15 @@ Yes.
 
 Agent:
 Your order has been placed successfully.
+```
 
-The exact medication names, prices, and quantities are defined in the in-memory pharmacy catalog in pharmacy_functions.py.
+The exact medication names, prices, and quantities are defined in the in-memory pharmacy catalog in `pharmacy_functions.py`.
 
-📁 Project Structure
+---
+
+## 📁 Project Structure
+
+```text
 voice-agent/
 │
 ├── main.py                   # Real-time WebSocket server and Twilio ↔ Deepgram audio pipeline
@@ -204,113 +224,162 @@ voice-agent/
 ├── .python-version           # Python version reference
 ├── .gitignore
 └── README.md
+```
 
-The repository currently contains five visible commits and is implemented entirely in Python.
+---
 
-🔍 File Breakdown
-main.py
+## 🔍 File Breakdown
+
+### `main.py`
 
 Responsible for the real-time audio and WebSocket pipeline:
 
-connects to the Deepgram Agent WebSocket;
-loads voice-agent configuration from config.json;
-receives media events from Twilio;
-forwards buffered inbound audio to Deepgram;
-receives text control messages and raw audio from Deepgram;
-handles barge-in interruption;
-executes function call requests;
-streams generated audio responses back to Twilio.
-config.json
+- connects to the Deepgram Agent WebSocket;
+- loads voice-agent configuration from `config.json`;
+- receives media events from Twilio;
+- forwards buffered inbound audio to Deepgram;
+- receives text control messages and raw audio from Deepgram;
+- handles barge-in interruption;
+- executes function call requests;
+- streams generated audio responses back to Twilio.
+
+### `config.json`
 
 Defines the assistant configuration:
 
-input and output audio format;
-Deepgram speech recognition model;
-OpenAI reasoning model;
-agent prompt;
-function-calling schemas;
-text-to-speech voice;
-greeting message.
-pharmacy_functions.py
+- input and output audio format;
+- Deepgram speech recognition model;
+- OpenAI reasoning model;
+- agent prompt;
+- function-calling schemas;
+- text-to-speech voice;
+- greeting message.
+
+### `pharmacy_functions.py`
 
 Contains the lightweight backend layer:
 
-in-memory drug catalog;
-in-memory order storage;
-get_drug_info;
-place_order;
-lookup_order;
-FUNCTION_MAP used by the main WebSocket loop.
-🧰 Tech Stack
-Area	Technologies
-Telephony	Twilio Programmable Voice, Twilio Media Streams
-Reverse Proxy	Nginx
-AI Voice Agent	Deepgram Voice Agent API
-LLM Reasoning	OpenAI gpt-4o-mini via Deepgram agent configuration
-Backend	Python, asyncio, WebSockets
-Audio	μ-law, 8 kHz audio streaming
-Tool Calling	Custom Python functions
-Configuration	JSON, environment variables
-⚙️ Local Setup
-1. Clone the repository
+- in-memory drug catalog;
+- in-memory order storage;
+- `get_drug_info`;
+- `place_order`;
+- `lookup_order`;
+- `FUNCTION_MAP` used by the main WebSocket loop.
+
+---
+
+## 🧰 Tech Stack
+
+| Area | Technologies |
+|---|---|
+| Telephony | Twilio Programmable Voice, Twilio Media Streams |
+| Reverse Proxy | Nginx |
+| AI Voice Agent | Deepgram Voice Agent API |
+| LLM Reasoning | OpenAI `gpt-4o-mini` via Deepgram agent configuration |
+| Backend | Python, `asyncio`, WebSockets |
+| Audio | μ-law, 8 kHz audio streaming |
+| Tool Calling | Custom Python functions |
+| Configuration | JSON, environment variables |
+
+---
+
+## ⚙️ Local Setup
+
+### 1. Clone the repository
+
+```bash
 git clone https://github.com/bohdankukuruza/voice-agent.git
 cd voice-agent
-2. Create and activate a virtual environment
+```
+
+### 2. Create and activate a virtual environment
+
+```bash
 python -m venv venv
-Windows
+```
+
+#### Windows
+
+```bash
 venv\Scripts\activate
-macOS / Linux
+```
+
+#### macOS / Linux
+
+```bash
 source venv/bin/activate
-3. Install dependencies
+```
 
-Using uv:
+### 3. Install dependencies
 
+Using `uv`:
+
+```bash
 uv sync
+```
 
 Or install the required runtime packages manually:
 
+```bash
 pip install websockets python-dotenv
+```
 
-The project uses websockets and python-dotenv in main.py.
+The project uses `websockets` and `python-dotenv` in `main.py`.
 
-4. Create a .env file
+### 4. Create a `.env` file
 
-Create a .env file in the project root:
+Create a `.env` file in the project root:
 
+```env
 DEEPGRAM_API_KEY=your_deepgram_api_key
+```
 
 The server reads this key at startup and raises an exception if it is missing.
 
-5. Run the Python WebSocket server
+### 5. Run the Python WebSocket server
+
+```bash
 python main.py
+```
 
 Expected console output:
 
+```text
 Started server.
+```
 
 The local WebSocket server listens on:
 
+```text
 ws://localhost:5000
+```
 
-☎️ Twilio Integration
+---
 
-The project is designed to work with Twilio Media Streams.
+## ☎️ Twilio Integration
+
+The project is designed to work with **Twilio Media Streams**.
 
 Twilio should be configured to connect an incoming phone call to the WebSocket endpoint exposed through your public reverse proxy. The Python backend expects Twilio-style WebSocket messages containing:
 
+```text
 connected
 start
 media
 stop
+```
 
-The server reads the Twilio streamSid from the start event and uses it when sending generated audio back to the active call.
+The server reads the Twilio `streamSid` from the `start` event and uses it when sending generated audio back to the active call.
 
-🌐 Nginx Reverse Proxy
+---
 
-During development/testing, Nginx can be used as a reverse proxy to expose the local WebSocket backend to Twilio.
+## 🌐 Nginx Reverse Proxy
+
+During development/testing, **Nginx** can be used as a reverse proxy to expose the local WebSocket backend to Twilio.
 
 Conceptually:
 
+```text
 Public WSS endpoint
         │
         ▼
@@ -318,38 +387,49 @@ Nginx
         │
         ▼
 ws://localhost:5000
+```
 
 This lets Twilio reach the local real-time WebSocket application from the public internet.
 
-Note: The Nginx configuration is not currently stored in this repository.
+> Note: The Nginx configuration is not currently stored in this repository.
 
-💾 Data Storage Notes
+---
+
+## 💾 Data Storage Notes
 
 This project currently uses in-memory Python dictionaries:
 
-DRUG_DB stores medications;
-ORDERS_DB stores generated orders;
-order IDs are incremented at runtime;
-orders disappear when the app restarts.
+- `DRUG_DB` stores medications;
+- `ORDERS_DB` stores generated orders;
+- order IDs are incremented at runtime;
+- orders disappear when the app restarts.
 
 A production version would typically move this logic to a persistent database such as PostgreSQL.
 
-🧭 Potential Improvements
-Persist orders in PostgreSQL
-Store real call transcripts
-Add structured logging and error monitoring
-Add an admin dashboard for order management
-Improve medication search with fuzzy matching
-Add unit tests for backend tools
-Add Docker setup
-Include Twilio webhook and Nginx configuration examples
-Deploy the service to a cloud platform
-👨‍💻 Author
+---
 
-Bohdan Kukuruza
+## 🧭 Potential Improvements
+
+- Persist orders in PostgreSQL
+- Store real call transcripts
+- Add structured logging and error monitoring
+- Add an admin dashboard for order management
+- Improve medication search with fuzzy matching
+- Add unit tests for backend tools
+- Add Docker setup
+- Include Twilio webhook and Nginx configuration examples
+- Deploy the service to a cloud platform
+
+---
+
+## 👨‍💻 Author
+
+**Bohdan Kukuruza**
+
+---
 
 <div align="center">
 
 ⭐ If you found this project interesting, feel free to star the repository.
 
-</div> ```
+</div>
