@@ -10,6 +10,7 @@ RUN uv sync --frozen --no-dev --no-cache
 COPY main.py pharmacy_functions.py config.json ./
 
 ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
 
 EXPOSE 5000
 
