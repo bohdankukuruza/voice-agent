@@ -36,6 +36,14 @@ Edit `.env` and fill in:
 - `DEEPGRAM_API_KEY` — your Deepgram API key
 - `DOMAIN` — the domain from step 1 (e.g. `voice.yourdomain.com`)
 - `LETSENCRYPT_EMAIL` — your email (Let's Encrypt expiry notices)
+- `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` — credentials for the
+  orders database (pick a strong password; this stays internal to the Docker
+  network, never exposed to the internet)
+- `STREAM_AUTH_TOKEN` — a random secret so only requests carrying it can open
+  the WebSocket; generate one with
+  `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+- `CALL_TIME_LIMIT_SECONDS` — max call length before the agent says goodbye
+  and hangs up (default 60)
 
 ## 5. Build the app image
 
@@ -72,15 +80,12 @@ docker compose logs -f app
 ## 8. Point Twilio at the server
 
 In the Twilio console, set the Media Stream / Voice webhook for your number
-to:
+to (note the `token` query parameter — it must match `STREAM_AUTH_TOKEN` in
+`.env`, otherwise the server rejects the connection with 403):
 
 ```
-wss://voice.yourdomain.com/
+wss://voice.yourdomain.com/?token=YOUR_STREAM_AUTH_TOKEN
 ```
-
-(Replace with whatever path your Twilio setup expects — this project's
-`twilio_handler` accepts any path since `websockets.serve` doesn't route on
-path here.)
 
 ## Updating the app later
 
@@ -93,8 +98,11 @@ docker compose up -d app
 
 ## Notes
 
-- `ORDERS_DB` / `DRUG_DB` in `pharmacy_functions.py` are in-memory — they
-  reset whenever the `app` container restarts. Fine for a prototype; move to
-  Postgres for real persistence (see README's "Potential Improvements").
+- Orders are stored in the `db` (Postgres) service, backed by the `pgdata`
+  Docker volume — they survive `app` restarts/redeploys. `docker compose down
+  -v` deletes the volume (and all orders); plain `docker compose down`/`up`
+  does not.
+- `DRUG_DB` (the drug catalog) stays hardcoded in `pharmacy_functions.py`
+  since it's static reference data, not something that needs a database.
 - Logs: `docker compose logs -f app` (Ctrl+C to stop following).
 - To check certificate renewal is working: `docker compose logs certbot`.

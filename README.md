@@ -397,27 +397,20 @@ This lets Twilio reach the local real-time WebSocket application from the public
 
 ## 💾 Data Storage Notes
 
-This project currently uses in-memory Python dictionaries:
-
-- `DRUG_DB` stores medications;
-- `ORDERS_DB` stores generated orders;
-- order IDs are incremented at runtime;
-- orders disappear when the app restarts.
-
-A production version would typically move this logic to a persistent database such as PostgreSQL.
+- `DRUG_DB` (the drug catalog) is a static in-memory Python dictionary in
+  `pharmacy_functions.py` — it doesn't change at runtime, so it doesn't need
+  a database.
+- Orders are persisted in **PostgreSQL** (see `docker-compose.yml`'s `db`
+  service), so they survive app restarts and redeploys.
 
 ---
 
 ## 🧭 Potential Improvements
 
-- Persist orders in PostgreSQL
 - Store real call transcripts
 - Add structured logging and error monitoring
 - Add an admin dashboard for order management
-- Improve medication search with fuzzy matching
 - Add unit tests for backend tools
-- Add Docker setup
-- Include Twilio webhook and Nginx configuration examples
 - Deploy the service to a cloud platform
 
 ---

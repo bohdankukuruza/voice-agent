@@ -1,12 +1,17 @@
 import asyncio
 import base64
+import http
 import json
+import urllib.parse
 import websockets
 import os
 from dotenv import load_dotenv
-from pharmacy_functions import FUNCTION_MAP
+from pharmacy_functions import FUNCTION_MAP, init_db
 
 load_dotenv()
+
+CALL_TIME_LIMIT_SECONDS = int(os.getenv("CALL_TIME_LIMIT_SECONDS", "60"))
+STREAM_AUTH_TOKEN = os.getenv("STREAM_AUTH_TOKEN")
 
 
 def sts_connect():
@@ -144,8 +149,22 @@ async def twilio_receiver(twilio_ws, audio_queue, streamsid_queue):
                 chunk = inbuffer[:BUFFER_SIZE]
                 audio_queue.put_nowait(chunk)
                 inbuffer = inbuffer[BUFFER_SIZE:]
-        except:
+        except Exception as e:
+            print(f"twilio_receiver error: {e}")
             break
+
+
+async def enforce_call_time_limit(sts_ws):
+    await asyncio.sleep(CALL_TIME_LIMIT_SECONDS)
+    print(f"Call time limit ({CALL_TIME_LIMIT_SECONDS}s) reached, ending call.")
+    try:
+        await sts_ws.send(json.dumps({
+            "type": "InjectAgentMessage",
+            "message": "We've reached our maximum call length. Thank you for calling, goodbye!"
+        }))
+        await asyncio.sleep(5)
+    except Exception as e:
+        print(f"Error sending closing message: {e}")
 
 
 async def twilio_handler(twilio_ws):
@@ -156,21 +175,44 @@ async def twilio_handler(twilio_ws):
         config_message = load_config()
         await sts_ws.send(json.dumps(config_message))
 
-        await asyncio.wait(
-            [
-                asyncio.ensure_future(sts_sender(sts_ws, audio_queue)),
-                asyncio.ensure_future(sts_receiver(sts_ws, twilio_ws, streamsid_queue)),
-                asyncio.ensure_future(twilio_receiver(twilio_ws, audio_queue, streamsid_queue)),
-            ]
-        )
+        tasks = [
+            asyncio.ensure_future(sts_sender(sts_ws, audio_queue)),
+            asyncio.ensure_future(sts_receiver(sts_ws, twilio_ws, streamsid_queue)),
+            asyncio.ensure_future(twilio_receiver(twilio_ws, audio_queue, streamsid_queue)),
+            asyncio.ensure_future(enforce_call_time_limit(sts_ws)),
+        ]
 
-        await twilio_ws.close()
+        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+
+        for task in done:
+            exc = task.exception()
+            if exc is not None and not isinstance(exc, asyncio.CancelledError):
+                print(f"Call task ended with error: {exc!r}")
+
+    await twilio_ws.close()
+
+
+def validate_stream_request(connection, request):
+    if not STREAM_AUTH_TOKEN:
+        return None
+
+    query = urllib.parse.urlparse(request.path).query
+    token = urllib.parse.parse_qs(query).get("token", [None])[0]
+    if token != STREAM_AUTH_TOKEN:
+        return connection.respond(http.HTTPStatus.FORBIDDEN, "Forbidden\n")
+    return None
 
 
 async def main():
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "5000"))
-    await websockets.serve(twilio_handler, host, port)
+    init_db()
+    await websockets.serve(
+        twilio_handler, host, port, process_request=validate_stream_request
+    )
     print(f"Started server on {host}:{port}.")
     await asyncio.Future()
 
