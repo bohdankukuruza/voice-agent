@@ -38,30 +38,41 @@ def get_drug_info(drug_name):
     return {"error": f"Drug '{drug_name}' not found"}
 
 
-def place_order(customer_name, drug_name):
-    """Place a simple order with predefined quantity."""
+def place_order(customer_name, drug_name, quantity=None):
+    """Place an order for the requested quantity (falls back to the drug's predefined quantity)."""
     drug = DRUG_DB.get(drug_name.lower())
     if not drug:
         return {"error": f"Drug '{drug_name}' not found"}
 
+    if quantity is None:
+        quantity = drug["quantity"]
+    else:
+        try:
+            quantity = int(quantity)
+        except (TypeError, ValueError):
+            return {"error": f"Invalid quantity: {quantity!r}"}
+        if quantity <= 0:
+            return {"error": "Quantity must be a positive number"}
+
     order_id = ORDERS_DB["next_id"]
     ORDERS_DB["next_id"] += 1
 
+    total = round(drug["price"] * quantity, 2)
     order = {
         "id": order_id,
         "customer": customer_name,
         "drug": drug["name"],
-        "quantity": drug["quantity"],
-        "total": drug["price"],
+        "quantity": quantity,
+        "total": total,
         "status": "pending"
     }
     ORDERS_DB["orders"][order_id] = order
 
     return {
         "order_id": order_id,
-        "message": f"Order {order_id} placed: {drug['quantity']} {drug['name']} for ${order['total']:.2f}",
-        "total": order['total'],
-        "quantity": drug['quantity']
+        "message": f"Order {order_id} placed: {quantity} {drug['name']} for ${total:.2f}",
+        "total": total,
+        "quantity": quantity
     }
 
 
