@@ -197,9 +197,11 @@ async def twilio_handler(twilio_ws):
 
 def serve_twiml(connection):
     domain = os.getenv("DOMAIN")
+    # The token goes in the URL path, not the query string: Twilio drops query
+    # parameters from <Stream url> but preserves the path.
     stream_url = f"wss://{domain}/"
     if STREAM_AUTH_TOKEN:
-        stream_url += f"?token={STREAM_AUTH_TOKEN}"
+        stream_url = f"wss://{domain}/{STREAM_AUTH_TOKEN}"
     twiml = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         "<Response>\n"
@@ -225,13 +227,11 @@ def validate_stream_request(connection, request):
     if not STREAM_AUTH_TOKEN:
         return None
 
-    token = urllib.parse.parse_qs(parsed.query).get("token", [None])[0]
-    # Trim stray whitespace/newlines: XML attribute-value normalization turns a
-    # literal line break inside url="..." into a trailing space, which is an
-    # easy copy-paste mistake to make in the TwiML Bin editor.
-    if token is not None:
-        token = token.strip()
-    if token != STREAM_AUTH_TOKEN:
+    # Token in the path (what our TwiML emits), with query-string fallback for
+    # manual testing. Stray whitespace is stripped defensively.
+    path_token = urllib.parse.unquote(parsed.path).strip("/").strip()
+    query_token = urllib.parse.parse_qs(parsed.query).get("token", [""])[0].strip()
+    if STREAM_AUTH_TOKEN not in (path_token, query_token):
         return connection.respond(http.HTTPStatus.FORBIDDEN, "Forbidden\n")
     return None
 
