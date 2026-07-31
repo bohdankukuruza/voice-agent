@@ -209,6 +209,7 @@ def serve_twiml(connection):
         "</Response>\n"
     )
     response = connection.respond(http.HTTPStatus.OK, twiml)
+    del response.headers["Content-Type"]
     response.headers["Content-Type"] = "text/xml"
     return response
 
