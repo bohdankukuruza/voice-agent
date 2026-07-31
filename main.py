@@ -201,6 +201,11 @@ def validate_stream_request(connection, request):
 
     query = urllib.parse.urlparse(request.path).query
     token = urllib.parse.parse_qs(query).get("token", [None])[0]
+    # Trim stray whitespace/newlines: XML attribute-value normalization turns a
+    # literal line break inside url="..." into a trailing space, which is an
+    # easy copy-paste mistake to make in the TwiML Bin editor.
+    if token is not None:
+        token = token.strip()
     if token != STREAM_AUTH_TOKEN:
         return connection.respond(http.HTTPStatus.FORBIDDEN, "Forbidden\n")
     return None
