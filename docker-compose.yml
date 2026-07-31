@@ -35,10 +35,14 @@ services:
       - "443:443"
     environment:
       - DOMAIN=${DOMAIN}
+      - SHOP_DOMAIN=${SHOP_DOMAIN}
     volumes:
       - ./nginx/app.conf.template:/etc/nginx/templates/app.conf.template:ro
+      - ./nginx/gzip.conf:/etc/nginx/conf.d/gzip.conf:ro
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
+      - /home/ubuntu/shop/staticfiles:/var/www/shop/static:ro
+      - /home/ubuntu/shop/media:/var/www/shop/media:ro
     depends_on:
       - app
 
