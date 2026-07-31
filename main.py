@@ -117,7 +117,7 @@ async def sts_receiver(sts_ws, twilio_ws, streamsid_queue):
 
 
 async def twilio_receiver(twilio_ws, audio_queue, streamsid_queue):
-    BUFFER_SIZE = 20 * 160
+    BUFFER_SIZE = 160
     inbuffer = bytearray(b"")
 
     async for message in twilio_ws:
