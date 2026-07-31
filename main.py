@@ -195,12 +195,36 @@ async def twilio_handler(twilio_ws):
     await twilio_ws.close()
 
 
+def serve_twiml(connection):
+    domain = os.getenv("DOMAIN")
+    stream_url = f"wss://{domain}/"
+    if STREAM_AUTH_TOKEN:
+        stream_url += f"?token={STREAM_AUTH_TOKEN}"
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        "<Response>\n"
+        "  <Connect>\n"
+        f'    <Stream url="{stream_url}" />\n'
+        "  </Connect>\n"
+        "</Response>\n"
+    )
+    response = connection.respond(http.HTTPStatus.OK, twiml)
+    response.headers["Content-Type"] = "text/xml"
+    return response
+
+
 def validate_stream_request(connection, request):
+    parsed = urllib.parse.urlparse(request.path)
+
+    # Twilio's voice webhook fetches TwiML from here over plain HTTPS, so the
+    # Stream URL (with its token) never has to be copy-pasted by hand.
+    if parsed.path == "/twiml":
+        return serve_twiml(connection)
+
     if not STREAM_AUTH_TOKEN:
         return None
 
-    query = urllib.parse.urlparse(request.path).query
-    token = urllib.parse.parse_qs(query).get("token", [None])[0]
+    token = urllib.parse.parse_qs(parsed.query).get("token", [None])[0]
     # Trim stray whitespace/newlines: XML attribute-value normalization turns a
     # literal line break inside url="..." into a trailing space, which is an
     # easy copy-paste mistake to make in the TwiML Bin editor.
