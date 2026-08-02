@@ -36,6 +36,8 @@ services:
     environment:
       - DOMAIN=${DOMAIN}
       - SHOP_DOMAIN=${SHOP_DOMAIN}
+      - PORTFOLIO_DOMAIN=${PORTFOLIO_DOMAIN}
+      - PORTFOLIO_WWW_DOMAIN=${PORTFOLIO_WWW_DOMAIN}
     volumes:
       - ./nginx/app.conf.template:/etc/nginx/templates/app.conf.template:ro
       - ./nginx/gzip.conf:/etc/nginx/conf.d/gzip.conf:ro
@@ -44,6 +46,7 @@ services:
       - ./certbot/www:/var/www/certbot
       - /home/ubuntu/shop/staticfiles:/var/www/shop/static:ro
       - /home/ubuntu/shop/media:/var/www/shop/media:ro
+      - /home/ubuntu/portfolio/dist:/var/www/portfolio:ro
     depends_on:
       - app
 

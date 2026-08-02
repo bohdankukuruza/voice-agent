@@ -83,3 +83,37 @@ server {
         proxy_send_timeout 120s;
     }
 }
+
+server {
+    listen 80;
+    server_name ${PORTFOLIO_DOMAIN} ${PORTFOLIO_WWW_DOMAIN};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${PORTFOLIO_DOMAIN} ${PORTFOLIO_WWW_DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${PORTFOLIO_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${PORTFOLIO_DOMAIN}/privkey.pem;
+
+    root /var/www/portfolio;
+    index index.html;
+
+    location /assets/ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
