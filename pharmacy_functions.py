@@ -6,6 +6,7 @@ from psycopg_pool import ConnectionPool
 DATABASE_URL = os.getenv(
     "DATABASE_URL", "postgresql://voiceagent:voiceagent@localhost:5432/voiceagent"
 )
+MAX_CALLS_PER_DAY = int(os.getenv("MAX_CALLS_PER_DAY", "20"))
 pool = ConnectionPool(DATABASE_URL, min_size=1, max_size=5, open=False)
 
 
@@ -26,6 +27,26 @@ def init_db():
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS calls (
+                id SERIAL PRIMARY KEY,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+
+
+def check_and_record_call():
+    """Log a new call and return True, unless today's demo call cap is already hit."""
+    with pool.connection() as conn:
+        row = conn.execute(
+            "SELECT count(*) FROM calls WHERE created_at > now() - interval '1 day'"
+        ).fetchone()
+        if row[0] >= MAX_CALLS_PER_DAY:
+            return False
+        conn.execute("INSERT INTO calls DEFAULT VALUES")
+        return True
 
 
 # Prices are in EUR. Catalog is static reference data, not user-generated, so it

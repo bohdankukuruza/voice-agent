@@ -6,7 +6,7 @@ import urllib.parse
 import websockets
 import os
 from dotenv import load_dotenv
-from pharmacy_functions import FUNCTION_MAP, init_db
+from pharmacy_functions import FUNCTION_MAP, check_and_record_call, init_db
 
 load_dotenv()
 
@@ -196,6 +196,20 @@ async def twilio_handler(twilio_ws):
 
 
 def serve_twiml(connection):
+    if not check_and_record_call():
+        twiml = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            "<Response>\n"
+            "  <Say>Sorry, this demo has reached its call limit for today. "
+            "Please try again tomorrow.</Say>\n"
+            "  <Hangup/>\n"
+            "</Response>\n"
+        )
+        response = connection.respond(http.HTTPStatus.OK, twiml)
+        del response.headers["Content-Type"]
+        response.headers["Content-Type"] = "text/xml"
+        return response
+
     domain = os.getenv("DOMAIN")
     # The token goes in the URL path, not the query string: Twilio drops query
     # parameters from <Stream url> but preserves the path.
