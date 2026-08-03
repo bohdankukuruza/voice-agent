@@ -1,7 +1,10 @@
 import asyncio
 import base64
+import hashlib
+import hmac
 import http
 import json
+import secrets
 import urllib.parse
 import websockets
 import os
@@ -12,6 +15,7 @@ load_dotenv()
 
 CALL_TIME_LIMIT_SECONDS = int(os.getenv("CALL_TIME_LIMIT_SECONDS", "60"))
 STREAM_AUTH_TOKEN = os.getenv("STREAM_AUTH_TOKEN")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 
 
 def sts_connect():
@@ -199,6 +203,28 @@ async def twilio_handler(twilio_ws):
     await twilio_ws.close()
 
 
+def has_valid_twilio_signature(request):
+    """Verify Twilio signed this webhook request.
+
+    Twilio signs the full request URL (plus sorted POST body params, which our
+    GET webhook has none of) with the account auth token. Returns True when
+    TWILIO_AUTH_TOKEN is unset so the endpoint keeps working before the token
+    is configured.
+    """
+    if not TWILIO_AUTH_TOKEN:
+        return True
+
+    provided = request.headers.get("X-Twilio-Signature")
+    if not provided:
+        return False
+
+    url = f"https://{os.getenv('DOMAIN')}{request.path}"
+    expected = base64.b64encode(
+        hmac.new(TWILIO_AUTH_TOKEN.encode(), url.encode(), hashlib.sha1).digest()
+    ).decode()
+    return hmac.compare_digest(expected, provided)
+
+
 def serve_twiml(connection):
     if not is_call_allowed():
         twiml = (
@@ -240,6 +266,8 @@ def validate_stream_request(connection, request):
     # Twilio's voice webhook fetches TwiML from here over plain HTTPS, so the
     # Stream URL (with its token) never has to be copy-pasted by hand.
     if parsed.path == "/twiml":
+        if not has_valid_twilio_signature(request):
+            return connection.respond(http.HTTPStatus.FORBIDDEN, "Forbidden\n")
         return serve_twiml(connection)
 
     if not STREAM_AUTH_TOKEN:
@@ -249,7 +277,10 @@ def validate_stream_request(connection, request):
     # manual testing. Stray whitespace is stripped defensively.
     path_token = urllib.parse.unquote(parsed.path).strip("/").strip()
     query_token = urllib.parse.parse_qs(parsed.query).get("token", [""])[0].strip()
-    if STREAM_AUTH_TOKEN not in (path_token, query_token):
+    if not any(
+        secrets.compare_digest(candidate, STREAM_AUTH_TOKEN)
+        for candidate in (path_token, query_token)
+    ):
         return connection.respond(http.HTTPStatus.FORBIDDEN, "Forbidden\n")
     return None
 

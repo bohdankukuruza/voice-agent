@@ -1,5 +1,25 @@
 # Shared rate-limit bucket for the unauthenticated TwiML webhook.
 limit_req_zone $binary_remote_addr zone=twiml:1m rate=10r/m;
+# Slow down password guessing against the shop's Django admin.
+limit_req_zone $binary_remote_addr zone=adminlogin:1m rate=20r/m;
+
+# Anything arriving with a Host we don't serve (someone pointing their own
+# domain at this IP, or scanners hitting the bare address) gets dropped.
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    return 444;
+}
+
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    return 444;
+}
 
 server {
     listen 80;
@@ -76,6 +96,16 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/${SHOP_DOMAIN}/privkey.pem;
 
     add_header Strict-Transport-Security "max-age=31536000" always;
+
+    location /admin/login/ {
+        limit_req zone=adminlogin burst=10 nodelay;
+        proxy_pass http://web:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
 
     location /static/ {
         alias /var/www/shop/static/;
