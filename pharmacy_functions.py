@@ -37,16 +37,23 @@ def init_db():
         )
 
 
-def check_and_record_call():
-    """Log a new call and return True, unless today's demo call cap is already hit."""
+def is_call_allowed():
+    """Read-only check of today's demo call cap.
+
+    Safe to call from the unauthenticated /twiml endpoint: it never writes, so
+    anonymous requests cannot burn through the quota.
+    """
     with pool.connection() as conn:
         row = conn.execute(
             "SELECT count(*) FROM calls WHERE created_at > now() - interval '1 day'"
         ).fetchone()
-        if row[0] >= MAX_CALLS_PER_DAY:
-            return False
+        return row[0] < MAX_CALLS_PER_DAY
+
+
+def record_call():
+    """Count one demo call. Only ever called after the stream token is validated."""
+    with pool.connection() as conn:
         conn.execute("INSERT INTO calls DEFAULT VALUES")
-        return True
 
 
 # Prices are in EUR. Catalog is static reference data, not user-generated, so it

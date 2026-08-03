@@ -6,7 +6,7 @@ import urllib.parse
 import websockets
 import os
 from dotenv import load_dotenv
-from pharmacy_functions import FUNCTION_MAP, check_and_record_call, init_db
+from pharmacy_functions import FUNCTION_MAP, init_db, is_call_allowed, record_call
 
 load_dotenv()
 
@@ -168,6 +168,10 @@ async def enforce_call_time_limit(sts_ws):
 
 
 async def twilio_handler(twilio_ws):
+    # Reached only after validate_stream_request() accepted the token, so this
+    # is the first point where a call is known to be genuine enough to count.
+    record_call()
+
     audio_queue = asyncio.Queue()
     streamsid_queue = asyncio.Queue()
 
@@ -196,7 +200,7 @@ async def twilio_handler(twilio_ws):
 
 
 def serve_twiml(connection):
-    if not check_and_record_call():
+    if not is_call_allowed():
         twiml = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             "<Response>\n"

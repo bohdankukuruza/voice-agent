@@ -1,3 +1,6 @@
+# Shared rate-limit bucket for the unauthenticated TwiML webhook.
+limit_req_zone $binary_remote_addr zone=twiml:1m rate=10r/m;
+
 server {
     listen 80;
     server_name ${DOMAIN};
@@ -19,12 +22,24 @@ server {
     ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
 
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
     # Public landing page (call-to-action for the demo). Everything else
     # (the /twiml webhook and the token-gated WebSocket path) still proxies
     # straight to the app.
     location = / {
         root /var/www/voice-landing;
         try_files /index.html =404;
+    }
+
+    # /twiml is necessarily unauthenticated (Twilio fetches it before any
+    # credential exists), so cap how fast anyone can hit it.
+    location = /twiml {
+        limit_req zone=twiml burst=5 nodelay;
+        proxy_pass http://app:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
     }
 
     location / {
@@ -59,6 +74,8 @@ server {
 
     ssl_certificate     /etc/letsencrypt/live/${SHOP_DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${SHOP_DOMAIN}/privkey.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
 
     location /static/ {
         alias /var/www/shop/static/;

@@ -12,6 +12,10 @@ COPY main.py pharmacy_functions.py config.json ./
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 
+# Drop root: the app only ever reads its own code and talks to the network.
+RUN useradd --system --uid 10001 appuser && chown -R appuser /app
+USER appuser
+
 EXPOSE 5000
 
 CMD ["python", "main.py"]
